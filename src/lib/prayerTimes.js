@@ -12,6 +12,10 @@
 //      (Nacht = Sonnenuntergang heute bis Fajr 18° morgen). Der FRUEHERE
 //      Zeitpunkt gewinnt.
 //    - Dhuhr / Maghrib: Puffer in Minuten aus config.js wird addiert.
+//
+//  Die Koordinaten kommen jetzt als Parameter herein, damit sowohl der
+//  Standard-Standort Essen als auch ein per Geolocation ermittelter
+//  Standort des Benutzers verwendet werden kann.
 // ============================================================================
 
 import {
@@ -22,12 +26,9 @@ import {
   HighLatitudeRule,
 } from 'adhan';
 
-import { LOCATION, BUFFERS, CALCULATION } from '../config.js';
-
-const coords = new Coordinates(LOCATION.latitude, LOCATION.longitude);
+import { BUFFERS, CALCULATION } from '../config.js';
 
 function buildParams(madhab) {
-  // CalculationParameters(method, fajrAngle, ishaAngle, ishaInterval, methodAdjustments?)
   const p = new CalculationParameters(
     'Other',
     CALCULATION.fajrAngle,
@@ -35,7 +36,6 @@ function buildParams(madhab) {
     0,
   );
   p.madhab = madhab;
-  // Wir wollen kein eingebautes Hochbreiten-Mapping — wir machen unser eigenes.
   p.highLatitudeRule = HighLatitudeRule.MiddleOfTheNight;
   return p;
 }
@@ -58,18 +58,11 @@ function startOfDay(date) {
  * Liefert die berechneten Gebetszeiten fuer den uebergebenen Tag.
  *
  * @param {Date} date — Datum (Uhrzeit wird ignoriert, es zaehlt der Kalendertag)
- * @returns {{
- *   fajr: Date,
- *   sunrise: Date,
- *   dhuhr: Date,
- *   asr: Date,
- *   asrHanafi: Date,
- *   maghrib: Date,
- *   isha: Date,
- *   meta: { fajrFallback: boolean, ishaSource: 'angle' | 'third' }
- * }}
+ * @param {{latitude: number, longitude: number}} location — Standort
  */
-export function calculatePrayerTimes(date) {
+export function calculatePrayerTimes(date, location) {
+  const coords = new Coordinates(location.latitude, location.longitude);
+
   const today = startOfDay(date);
   const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
@@ -83,8 +76,6 @@ export function calculatePrayerTimes(date) {
   let fajr = ptShafi.fajr;
   let fajrFallback = false;
   if (!isValid(fajr)) {
-    // Astronomische Mitternacht = Mitte zwischen Sonnenuntergang gestern und
-    // Sonnenaufgang heute.
     const sunsetYesterday = ptYesterday.maghrib;
     const sunriseToday = ptShafi.sunrise;
     if (isValid(sunsetYesterday) && isValid(sunriseToday)) {
@@ -95,26 +86,15 @@ export function calculatePrayerTimes(date) {
     }
   }
 
-  // --- Sonnenaufgang -------------------------------------------------------
   const sunrise = ptShafi.sunrise;
-
-  // --- Dhuhr (mit Puffer) --------------------------------------------------
   const dhuhr = addMinutes(ptShafi.dhuhr, BUFFERS.dhuhrMinutes);
-
-  // --- Asr (standard + Hanafi) --------------------------------------------
   const asr = ptShafi.asr;
   const asrHanafi = ptHanafi.asr;
-
-  // --- Maghrib (mit Puffer) ------------------------------------------------
-  const sunsetToday = ptShafi.maghrib; // unbuffered fuer Nachtberechnung
+  const sunsetToday = ptShafi.maghrib;
   const maghrib = addMinutes(sunsetToday, BUFFERS.maghribMinutes);
 
   // --- Isha: min(17°, sunset + Nacht/3) -----------------------------------
   const ishaAngle = ptShafi.isha;
-
-  // "Nacht" laeuft von Sonnenuntergang heute bis Fajr (18°) morgen.
-  // Wenn morgen 18° nicht eintritt, nehmen wir naeherungsweise den
-  // Sonnenaufgang morgen als Nachtende.
   const tomorrowFajr = ptTomorrow.fajr;
   const nightEnd = isValid(tomorrowFajr) ? tomorrowFajr : ptTomorrow.sunrise;
   const nightLengthMs = nightEnd.getTime() - sunsetToday.getTime();
@@ -146,21 +126,20 @@ export function calculatePrayerTimes(date) {
 }
 
 /**
- * Formatiert ein Date als "HH:MM" in der Zeitzone von Essen.
+ * Formatiert ein Date als "HH:MM" in der angegebenen Zeitzone.
  */
-export function formatTime(date) {
+export function formatTime(date, timezone) {
   if (!isValid(date)) return '—';
   return new Intl.DateTimeFormat('de-DE', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
-    timeZone: LOCATION.timezone,
+    timeZone: timezone,
   }).format(date);
 }
 
 /**
  * Bestimmt aus den Tageszeiten, welches Gebet als naechstes ansteht.
- * Liefert den key (z.B. 'dhuhr') oder null, wenn alle vorbei sind.
  */
 export function nextPrayer(times, now = new Date()) {
   const order = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];

@@ -4,7 +4,7 @@
 //  graben. Aenderungen werden beim naechsten Reload uebernommen.
 // ============================================================================
 
-// Standort: Essen, Deutschland
+// Standort: Essen, Deutschland (Default, falls keine GPS-Erlaubnis).
 export const LOCATION = {
   name: 'Essen',
   country: 'Deutschland',
@@ -12,6 +12,12 @@ export const LOCATION = {
   longitude: 7.0116,
   timezone: 'Europe/Berlin',
 };
+
+// Wenn aktiviert, fragt der Browser beim Laden nach der GPS-Position
+// und berechnet die Gebetszeiten fuer den aktuellen Standort des
+// Besuchers. Bei Ablehnung wird der Default oben verwendet.
+// Auf "false" setzen, um die Abfrage komplett zu deaktivieren.
+export const USE_GEOLOCATION = true;
 
 // Verein / Branding
 export const ORG = {
@@ -47,7 +53,7 @@ export const CALCULATION = {
 export const MESSAGES = [
   {
     title: 'Willkommen',
-    body: 'Salam alaikum! Diese Seite zeigt die taeglichen Gebetszeiten fuer Essen.',
+    body: 'Salamun alaikum Mucahid!',
   },
 ];
 

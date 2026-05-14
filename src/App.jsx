@@ -5,7 +5,14 @@ import {
   nextPrayer,
 } from './lib/prayerTimes.js';
 import { getHijriDate } from './lib/hijri.js';
-import { LOCATION, ORG, MESSAGES, PRAYER_DISPLAY } from './config.js';
+import { resolveUserLocation } from './lib/location.js';
+import {
+  LOCATION as DEFAULT_LOCATION,
+  ORG,
+  MESSAGES,
+  PRAYER_DISPLAY,
+  USE_GEOLOCATION,
+} from './config.js';
 import './App.css';
 
 function useNow() {
@@ -17,7 +24,26 @@ function useNow() {
   return now;
 }
 
-function DateBlock({ now }) {
+/**
+ * Versucht beim ersten Render, den Standort des Besuchers per GPS zu
+ * ermitteln. Bis das fertig ist (oder fehlschlaegt), bleibt der Default.
+ */
+function useLocation() {
+  const [location, setLocation] = useState(DEFAULT_LOCATION);
+  useEffect(() => {
+    if (!USE_GEOLOCATION) return;
+    let cancelled = false;
+    resolveUserLocation().then((loc) => {
+      if (!cancelled && loc) setLocation(loc);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return location;
+}
+
+function DateBlock({ now, timezone }) {
   const gregorian = useMemo(
     () =>
       new Intl.DateTimeFormat('de-DE', {
@@ -25,9 +51,9 @@ function DateBlock({ now }) {
         day: '2-digit',
         month: 'long',
         year: 'numeric',
-        timeZone: LOCATION.timezone,
+        timeZone: timezone,
       }).format(now),
-    [now],
+    [now, timezone],
   );
   const hijri = useMemo(() => getHijriDate(now), [now]);
   return (
@@ -38,7 +64,7 @@ function DateBlock({ now }) {
   );
 }
 
-function Clock({ now }) {
+function Clock({ now, timezone }) {
   const time = useMemo(
     () =>
       new Intl.DateTimeFormat('de-DE', {
@@ -46,21 +72,21 @@ function Clock({ now }) {
         minute: '2-digit',
         second: '2-digit',
         hour12: false,
-        timeZone: LOCATION.timezone,
+        timeZone: timezone,
       }).format(now),
-    [now],
+    [now, timezone],
   );
   return <div className="clock">{time}</div>;
 }
 
-function PrayerRow({ entry, times, isNext }) {
+function PrayerRow({ entry, times, isNext, timezone }) {
   const { key, de, ar, note } = entry;
 
   let display;
   if (key === 'asr') {
-    display = `${formatTime(times.asr)} / ${formatTime(times.asrHanafi)}`;
+    display = `${formatTime(times.asr, timezone)} / ${formatTime(times.asrHanafi, timezone)}`;
   } else {
-    display = formatTime(times[key]);
+    display = formatTime(times[key], timezone);
   }
 
   return (
@@ -94,10 +120,13 @@ function MessageBoard() {
 
 export default function App() {
   const now = useNow();
-  const times = useMemo(() => calculatePrayerTimes(now), [
-    // Neu berechnen, wenn der Kalendertag wechselt.
-    now.toDateString(),
-  ]);
+  const location = useLocation();
+  const times = useMemo(
+    () => calculatePrayerTimes(now, location),
+    // Neu berechnen, wenn der Kalendertag wechselt oder der Standort
+    // sich aendert (GPS hat geliefert / Wechsel auf Default).
+    [now.toDateString(), location.latitude, location.longitude],
+  );
   const nextKey = useMemo(() => nextPrayer(times, now), [times, now]);
 
   return (
@@ -109,15 +138,15 @@ export default function App() {
         <div className="header-text">
           <div className="org-name">{ORG.name}</div>
           <div className="org-tagline">
-            {ORG.tagline} · {LOCATION.name}
+            {ORG.tagline} · {location.name}
           </div>
         </div>
       </header>
 
       <main className="main">
         <section className="clock-card">
-          <Clock now={now} />
-          <DateBlock now={now} />
+          <Clock now={now} timezone={location.timezone} />
+          <DateBlock now={now} timezone={location.timezone} />
         </section>
 
         <section className="prayer-card">
@@ -129,6 +158,7 @@ export default function App() {
                 entry={entry}
                 times={times}
                 isNext={nextKey === entry.key}
+                timezone={location.timezone}
               />
             ))}
           </div>
@@ -139,8 +169,9 @@ export default function App() {
 
       <footer className="footer">
         <span>
-          {LOCATION.name}, {LOCATION.country} · {LOCATION.latitude.toFixed(3)}°N
-          / {LOCATION.longitude.toFixed(3)}°O
+          {location.name}
+          {location.country ? `, ${location.country}` : ''} ·{' '}
+          {location.latitude.toFixed(3)}°N / {location.longitude.toFixed(3)}°O
         </span>
       </footer>
     </div>
