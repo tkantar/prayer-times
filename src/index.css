@@ -1,0 +1,53 @@
+:root {
+  --bg-base: #0d1419;
+  --bg-elev: rgba(20, 30, 38, 0.72);
+  --bg-elev-strong: rgba(20, 30, 38, 0.88);
+  --border: rgba(212, 175, 55, 0.22);
+  --border-strong: rgba(212, 175, 55, 0.45);
+  --gold: #d4af37;
+  --gold-soft: #e8c97a;
+  --text: #e9ecef;
+  --text-muted: #a8b1ba;
+  --text-dim: #7c858e;
+  --next-glow: rgba(212, 175, 55, 0.18);
+
+  --sans: 'Inter', 'Segoe UI', system-ui, Roboto, sans-serif;
+  --arabic: 'Amiri', 'Scheherazade New', 'Noto Naskh Arabic', serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 16px/1.5 var(--sans);
+  color: var(--text);
+  background: var(--bg-base);
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: var(--bg-base);
+}
+
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 0.2px;
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+}
