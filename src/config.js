@@ -53,7 +53,7 @@ export const CALCULATION = {
 export const MESSAGES = [
   {
     title: 'Willkommen',
-    body: 'Salamun alaikum Mucahid!',
+    body: 'Salamun alaikum!',
   },
 ];
 
